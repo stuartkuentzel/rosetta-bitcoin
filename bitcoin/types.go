@@ -15,7 +15,6 @@
 package bitcoin
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -50,10 +49,6 @@ const (
 	// OutputOpType is used to describe
 	// OUTPUT.
 	OutputOpType = "OUTPUT"
-
-	// OpReturnOpType is used to describe
-	// OP_RETURN
-	OpReturnOpType = "OP_RETURN"
 
 	// CoinbaseOpType is used to describe
 	// Coinbase.
@@ -124,7 +119,6 @@ var (
 		InputOpType,
 		OutputOpType,
 		CoinbaseOpType,
-		OpReturnOpType,
 	}
 
 	// OperationStatuses are all supported operation.Status.
@@ -299,28 +293,9 @@ type Output struct {
 
 // Metadata returns the metadata for an output.
 func (o Output) Metadata() (map[string]interface{}, error) {
-
-	var m *OperationMetadata
-
-	if o.ScriptPubKey.Type == NullData && strings.HasPrefix(o.ScriptPubKey.ASM, "OP_RETURN") {
-
-		splitOpReturn := strings.Split(o.ScriptPubKey.ASM, " ")
-		opReturn := splitOpReturn[1]
-		decoded, err := hex.DecodeString(opReturn)
-		if err != nil {
-			return nil, fmt.Errorf("%w failed to decode OP_RETURN string", err)
-		}
-
-		m = &OperationMetadata{
-			ScriptPubKey: o.ScriptPubKey,
-			OpReturnMemo: string(decoded),
-		}
-	} else {
-		m = &OperationMetadata{
-			ScriptPubKey: o.ScriptPubKey,
-		}
+	m := &OperationMetadata{
+		ScriptPubKey: o.ScriptPubKey,
 	}
-
 	return types.MarshalMap(m)
 }
 

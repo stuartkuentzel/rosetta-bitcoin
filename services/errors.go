@@ -191,6 +191,13 @@ var (
 		Code:    19, // nolint
 		Message: "Unable to create NullDataScript",
 	}
+
+	// ErrUnableToDecodeOpReturn is used when checking a transaction
+	// and decoding OP RETURN fails in DecodeTxOpReturns
+	ErrUnableToDecodeOpReturn = &types.Error{
+		Code: 	20,
+		Message: "Error attempting to decode transaction OP RETURNS",
+	}
 )
 
 // wrapErr adds details to the types.Error provided. We use a function

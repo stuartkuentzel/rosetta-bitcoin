@@ -252,18 +252,6 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 				},
 				AllowRepeats: true,
 			},
-			{
-				Type: bitcoin.OpReturnOpType,
-				Account: &parser.AccountDescription{
-					Exists: true,
-				},
-				Amount: &parser.AmountDescription{
-					Exists:   true,
-					Sign:     parser.AnyAmountSign,
-					Currency: s.config.Currency,
-				},
-				AllowRepeats: true,
-			},
 		},
 		ErrUnmatched: true,
 	}
@@ -274,8 +262,6 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	}
 
 	tx := wire.NewMsgTx(wire.TxVersion)
-
-	// Inputs
 	for _, input := range matches[0].Operations {
 		if input.CoinChange == nil {
 			return nil, wrapErr(ErrUnclearIntent, errors.New("CoinChange cannot be nil"))
@@ -296,52 +282,76 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		})
 	}
 
-	// Normal spendable Outputs
 	for i, output := range matches[1].Operations {
-		addr, err := btcutil.DecodeAddress(output.Account.Address, s.config.Params)
-		if err != nil {
-			return nil, wrapErr(ErrUnableToDecodeAddress, fmt.Errorf(
-				"%w unable to decode address %s",
-				err,
-				output.Account.Address,
-			),
-			)
-		}
 
-		pkScript, err := txscript.PayToAddrScript(addr)
-		if err != nil {
-			return nil, wrapErr(
-				ErrUnableToDecodeAddress,
-				fmt.Errorf("%w unable to construct payToAddrScript", err),
-			)
-		}
-
-		tx.AddTxOut(&wire.TxOut{
-			Value:    matches[1].Amounts[i].Int64(),
-			PkScript: pkScript,
-		})
-	}
-
-	// OP RETURN Outputs
-	for _, output := range matches[2].Operations {
 		var opMetadata bitcoin.OperationMetadata
 		if err := types.UnmarshalMap(output.Metadata, &opMetadata); err != nil {
 			return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 		}
 
-		nullDataScript, err := txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
-		if err != nil {
-			return nil, wrapErr(
-				ErrUnableToCreateNullDataScript,
-				fmt.Errorf("%w unable to construct NullDataScript", err),
-			)
+		// if strings.HasPrefix(opMetadata.ScriptPubKey.ASM, "OP_RETURN") {
+		if len(opMetadata.OpReturnMemo) > 0 {
+
+			nullDataScript, err := txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
+			if err != nil {
+				return nil, wrapErr(
+					ErrUnableToCreateNullDataScript,
+					fmt.Errorf("%w unable to construct NullDataScript", err),
+				)
+			}
+
+			tx.AddTxOut(&wire.TxOut{
+				Value:    0,
+				PkScript: nullDataScript,
+			})
+		} else {
+			addr, err := btcutil.DecodeAddress(output.Account.Address, s.config.Params)
+			if err != nil {
+				return nil, wrapErr(ErrUnableToDecodeAddress, fmt.Errorf(
+					"%w unable to decode address %s",
+					err,
+					output.Account.Address,
+				),
+				)
+			}
+
+			pkScript, err := txscript.PayToAddrScript(addr)
+			if err != nil {
+				return nil, wrapErr(
+					ErrUnableToDecodeAddress,
+					fmt.Errorf("%w unable to construct payToAddrScript", err),
+				)
+			}
+
+			tx.AddTxOut(&wire.TxOut{
+				Value:    matches[1].Amounts[i].Int64(),
+				PkScript: pkScript,
+			})
 		}
 
-		tx.AddTxOut(&wire.TxOut{
-			Value:    0,
-			PkScript: nullDataScript,
-		})
 	}
+
+	//// OP RETURN outputs
+	//for _, output := range matches[2].Operations {
+	//
+	//	var opMetadata bitcoin.OperationMetadata
+	//	if err := types.UnmarshalMap(output.Metadata, &opMetadata); err != nil {
+	//		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
+	//	}
+	//
+	//	nullDataScript, err := txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
+	//	if err != nil {
+	//		return nil, wrapErr(
+	//			ErrUnableToCreateNullDataScript,
+	//			fmt.Errorf("%w unable to construct NullDataScript", err),
+	//		)
+	//	}
+	//
+	//	tx.AddTxOut(&wire.TxOut{
+	//		Value:    0,
+	//		PkScript: nullDataScript,
+	//	})
+	//}
 
 	// Create Signing Payloads (must be done after entire tx is constructed
 	// or hash will not be correct).

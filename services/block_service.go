@@ -16,7 +16,7 @@ package services
 
 import (
 	"context"
-
+	"github.com/coinbase/rosetta-bitcoin/bitcoin"
 	"github.com/coinbase/rosetta-bitcoin/configuration"
 
 	"github.com/coinbase/rosetta-sdk-go/server"
@@ -71,10 +71,15 @@ func (s *BlockAPIService) Block(
 			return nil, wrapErr(ErrTransactionNotFound, err)
 		}
 
+		// check Transaction for OP RETURN outputs
+		// update metadata if present
+		if err = bitcoin.DecodeTxOpReturns(transaction); err != nil {
+			return nil, wrapErr(ErrUnableToDecodeOpReturn, err)
+		}
+
 		txs[i] = transaction
 	}
 	blockResponse.Block.Transactions = txs
-
 	blockResponse.OtherTransactions = nil
 	return blockResponse, nil
 }
@@ -95,6 +100,12 @@ func (s *BlockAPIService) BlockTransaction(
 	)
 	if err != nil {
 		return nil, wrapErr(ErrTransactionNotFound, err)
+	}
+
+	// check Transaction for OP RETURN outputs
+	// update metadata if present
+	if err = bitcoin.DecodeTxOpReturns(transaction); err != nil {
+		return nil, wrapErr(ErrUnableToDecodeOpReturn, err)
 	}
 
 	return &types.BlockTransactionResponse{

@@ -674,7 +674,6 @@ func (b *Client) parseOutputTransactionOperation(
 	// we don't create a coin because it is provably unspendable.
 	if output.ScriptPubKey.Type == NullData {
 		coinChange = nil
-		opType = OpReturnOpType
 	}
 
 	return &types.Operation{

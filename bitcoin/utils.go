@@ -15,6 +15,7 @@
 package bitcoin
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -67,4 +68,59 @@ func ParseSingleAddress(
 	address := addresses[0]
 
 	return class, address, nil
+}
+
+// DecodeTxOpReturns takes a transaction and checks all operation outputs for an OP RETURN
+// if present, it decodes the value and updates the operation metadata
+func DecodeTxOpReturns(transaction *types.Transaction) error {
+	// Loop through operations
+	for _, op := range transaction.Operations {
+
+		// We only want to check outputs for OP_RETURNS
+		if op.Type == OutputOpType {
+			memo, err := ParseOpReturn(op)
+			if err != nil {
+				return fmt.Errorf("%w: error decoding Output ", err)
+			}
+
+			if len(memo) > 0 {
+				var opMetadata OperationMetadata
+				if err := types.UnmarshalMap(op.Metadata, &opMetadata); err != nil {
+					return fmt.Errorf("%w: error unmarshalling metadata", err)
+				}
+
+				opMetadata.OpReturnMemo = memo
+				md, err := types.MarshalMap(opMetadata)
+				if err != nil {
+					return fmt.Errorf("%w: error marshalling metadata", err)
+				}
+				op.Metadata = md
+			}
+		}
+	}
+
+	return nil
+}
+
+// DecodeOpReturn checks if an output is an OP RETURN and parses the memo
+// func DecodeOpReturn(o Output) (string, error) {
+func ParseOpReturn(o *types.Operation) (string, error) {
+	if o.Type == OutputOpType {
+		var opMetadata OperationMetadata
+		if err := types.UnmarshalMap(o.Metadata, &opMetadata); err != nil {
+			return "", fmt.Errorf("%w: unable to unmarshal output Metadata", err)
+		}
+
+		if strings.HasPrefix(opMetadata.ScriptPubKey.ASM, "OP_RETURN") {
+			splitOpReturn := strings.Split(opMetadata.ScriptPubKey.ASM, " ")
+			opReturn := splitOpReturn[1]
+			decoded, err := hex.DecodeString(opReturn)
+			if err != nil {
+				return "", fmt.Errorf("%w failed to decode OP_RETURN string", err)
+			}
+			return string(decoded), nil
+		}
+	}
+
+	return "", nil
 }

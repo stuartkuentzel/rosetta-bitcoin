@@ -285,14 +285,15 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	for i, output := range matches[1].Operations {
 
 		var opMetadata bitcoin.OperationMetadata
+		var pkScript []byte
+		var value int64
+
 		if err := types.UnmarshalMap(output.Metadata, &opMetadata); err != nil {
 			return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 		}
 
-		// if strings.HasPrefix(opMetadata.ScriptPubKey.ASM, "OP_RETURN") {
 		if len(opMetadata.OpReturnMemo) > 0 {
-
-			nullDataScript, err := txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
+			pkScript, err = txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
 			if err != nil {
 				return nil, wrapErr(
 					ErrUnableToCreateNullDataScript,
@@ -300,10 +301,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 				)
 			}
 
-			tx.AddTxOut(&wire.TxOut{
-				Value:    0,
-				PkScript: nullDataScript,
-			})
+			value = 0
 		} else {
 			addr, err := btcutil.DecodeAddress(output.Account.Address, s.config.Params)
 			if err != nil {
@@ -315,7 +313,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 				)
 			}
 
-			pkScript, err := txscript.PayToAddrScript(addr)
+			pkScript, err = txscript.PayToAddrScript(addr)
 			if err != nil {
 				return nil, wrapErr(
 					ErrUnableToDecodeAddress,
@@ -323,35 +321,14 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 				)
 			}
 
-			tx.AddTxOut(&wire.TxOut{
-				Value:    matches[1].Amounts[i].Int64(),
-				PkScript: pkScript,
-			})
+			value = matches[1].Amounts[i].Int64()
 		}
 
+		tx.AddTxOut(&wire.TxOut{
+			Value:    value,
+			PkScript: pkScript,
+		})
 	}
-
-	//// OP RETURN outputs
-	//for _, output := range matches[2].Operations {
-	//
-	//	var opMetadata bitcoin.OperationMetadata
-	//	if err := types.UnmarshalMap(output.Metadata, &opMetadata); err != nil {
-	//		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
-	//	}
-	//
-	//	nullDataScript, err := txscript.NullDataScript([]byte(opMetadata.OpReturnMemo))
-	//	if err != nil {
-	//		return nil, wrapErr(
-	//			ErrUnableToCreateNullDataScript,
-	//			fmt.Errorf("%w unable to construct NullDataScript", err),
-	//		)
-	//	}
-	//
-	//	tx.AddTxOut(&wire.TxOut{
-	//		Value:    0,
-	//		PkScript: nullDataScript,
-	//	})
-	//}
 
 	// Create Signing Payloads (must be done after entire tx is constructed
 	// or hash will not be correct).

@@ -296,6 +296,7 @@ func (o Output) Metadata() (map[string]interface{}, error) {
 	m := &OperationMetadata{
 		ScriptPubKey: o.ScriptPubKey,
 	}
+
 	return types.MarshalMap(m)
 }
 

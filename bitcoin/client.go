@@ -667,9 +667,6 @@ func (b *Client) parseOutputTransactionOperation(
 		account.Address = fmt.Sprintf("%s:%d", txHash, networkIndex)
 	}
 
-	// Output type should be OutputOpType unless contains OP_RETURN
-	opType := OutputOpType
-
 	// If this is an OP_RETURN locking script,
 	// we don't create a coin because it is provably unspendable.
 	if output.ScriptPubKey.Type == NullData {
@@ -681,7 +678,7 @@ func (b *Client) parseOutputTransactionOperation(
 			Index:        index,
 			NetworkIndex: &networkIndex,
 		},
-		Type:    opType,
+		Type:    OutputOpType,
 		Status:  types.String(SuccessStatus),
 		Account: account,
 		Amount: &types.Amount{

@@ -183,6 +183,14 @@ var (
 		Code:    18, //nolint
 		Message: "Unable to get balance",
 	}
+
+	// ErrUnableToCreateNullDataScript is returned
+	// in in ConstructionPayloads when an Output is OpReturnOpType
+	// but creating txscript.NullDataScript() fails
+	ErrUnableToCreateNullDataScript = &types.Error{
+		Code:    19, // nolint
+		Message: "Unable to create NullDataScript",
+	}
 )
 
 // wrapErr adds details to the types.Error provided. We use a function
